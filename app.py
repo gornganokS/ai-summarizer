@@ -1,5 +1,6 @@
 import streamlit as st
 import ollama
+from io import BytesIO
 from pypdf import PdfReader
 from docx import Document
 
@@ -115,15 +116,52 @@ if st.button("Summarize", type="primary"):
             st.error(f"Ollama error: {error.error}")
 
 if st.session_state.summary:
+    summary = st.session_state.summary
+
     st.subheader("Summary")
-    st.markdown(st.session_state.summary)
+    st.markdown(summary)
     st.caption(
         "This is your last generated summary. "
         "Click Summarize to apply changes to the text or settings."
     )
+
+    export_format = st.selectbox(
+        "Download format",
+        ["TXT", "Word (.docx)"],
+    )
+
+    if export_format == "TXT":
+        file_data = summary.encode("utf-8")
+        file_name = "summary.txt"
+        mime_type = "text/plain"
+
+    else:
+        document = Document()
+        document.add_heading("Summary", level=1)
+
+        for line in summary.splitlines():
+            line = line.strip()
+
+            if not line:
+                continue
+            elif line.startswith(("- ", "* ")):
+                document.add_paragraph(line[2:], style="List Bullet")
+            else:
+                document.add_paragraph(line)
+
+        word_buffer = BytesIO()
+        document.save(word_buffer)
+
+        file_data = word_buffer.getvalue()
+        file_name = "summary.docx"
+        mime_type = (
+            "application/vnd.openxmlformats-officedocument."
+            "wordprocessingml.document"
+        )
+
     st.download_button(
         "Download Summary",
-        data=st.session_state.summary,
-        file_name="summary.txt",
-        mime="text/plain",
+        data=file_data,
+        file_name=file_name,
+        mime=mime_type,
     )
